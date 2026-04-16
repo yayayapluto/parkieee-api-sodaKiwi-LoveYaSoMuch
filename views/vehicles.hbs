@@ -1,0 +1,32 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Vehicles & RFID (Latest 300)</h1>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col">Plate Number</th>
+                <th scope="col">Vehicle Type</th>
+                <th scope="col">Brand / Color</th>
+                <th scope="col">Has RFID Card</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each Vehicles}}
+            <tr>
+                <td><strong>{{this.PlateNumber}}</strong></td>
+                <td>{{this.VehicleType.Name}}</td>
+                <td>{{this.Brand}} / {{this.Color}}</td>
+                <td>
+                    {{#if this.RFIDCard}}
+                        <span class="badge bg-info text-dark">Yes ({{this.RFIDCard.CardNumber}})</span>
+                    {{else}}
+                        <span class="badge bg-secondary">No</span>
+                    {{/if}}
+                </td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>

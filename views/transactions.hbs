@@ -1,0 +1,38 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Transactions Ledger</h1>
+</div>
+
+<div class="table-responsive shadow-sm">
+    <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col">Short ID</th>
+                <th scope="col">Code</th>
+                <th scope="col">Method</th>
+                <th scope="col">Entry Time</th>
+                <th scope="col">Exit Time</th>
+                <th scope="col">Status</th>
+                <th scope="col">Calculated Fee</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each Transactions}}
+            <tr>
+                <td class="font-monospace text-muted">{{this.ID}}</td>
+                <td>{{this.Code}}</td>
+                <td><span class="badge bg-secondary">{{this.Method}}</span></td>
+                <td>{{this.EntryTime}}</td>
+                <td>{{this.ExitTime}}</td>
+                <td><span class="badge bg-primary">{{this.Status}}</span></td>
+                <td class="fw-bold">Rp {{this.Fee}}</td>
+            </tr>
+            {{/each}}
+            
+            {{#unless Transactions}}
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">No transactions found.</td>
+            </tr>
+            {{/unless}}
+        </tbody>
+    </table>
+</div>

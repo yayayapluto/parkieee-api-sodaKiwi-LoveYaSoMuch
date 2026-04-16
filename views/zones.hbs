@@ -1,0 +1,46 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Zones and Gates</h1>
+</div>
+
+<div class="row row-cols-1 row-cols-lg-2 g-4">
+    {{#each Zones}}
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <strong>{{this.Name}}</strong>
+                <span class="badge bg-secondary font-monospace">{{this.ZoneCode}}</span>
+            </div>
+            <div class="card-body">
+                <p class="card-text text-muted mb-3">Capacity: {{this.Capacity}}</p>
+                
+                <h6 class="card-title">Associated Gates</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mt-2">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Gate Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#each this.Gates}}
+                            <tr>
+                                <td>{{this.Name}}</td>
+                                <td><span class="badge bg-info text-dark">{{this.Type}}</span></td>
+                                <td>
+                                    <span class="badge bg-secondary">{{this.Status}}</span>
+                                </td>
+                            </tr>
+                            {{/each}}
+                            {{#unless this.Gates}}
+                            <tr><td colspan="3" class="text-center text-muted">No gates attached</td></tr>
+                            {{/unless}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{/each}}
+</div>

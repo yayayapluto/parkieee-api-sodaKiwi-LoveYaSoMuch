@@ -1,0 +1,56 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Fee Configurations</h1>
+</div>
+
+<p class="text-muted mb-4">Mapping <code>VehicleTypeID</code> to specific Zones calculation logic.</p>
+
+<div class="row row-cols-1 row-cols-xl-2 g-4">
+    {{#each Configs}}
+    <div class="col">
+        <div class="card h-100 shadow-sm border-secondary">
+            <div class="card-header bg-dark text-white font-monospace">
+                Config ID: {{this.ID}}
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-sm-6">
+                        <ul class="list-unstyled">
+                            <li><small class="text-muted">Base Fee</small><br><strong>Rp {{this.BaseFee}}</strong></li>
+                            <li class="mt-2"><small class="text-muted">Max Daily Fee</small><br><strong>Rp {{this.MaxDailyFee}}</strong></li>
+                        </ul>
+                    </div>
+                    <div class="col-sm-6">
+                        <ul class="list-unstyled">
+                            <li><small class="text-muted">Grace Period</small><br><strong>{{this.GracePeriodMinutes}} mins</strong></li>
+                            <li class="mt-2"><small class="text-muted">Flat Rate</small><br>
+                                {{#if this.IsFlatRate}}
+                                    <span class="badge bg-success">Yes</span>
+                                {{else}}
+                                    <span class="badge bg-secondary">No</span>
+                                {{/if}}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                {{#if this.Tiers}}
+                <h6 class="card-subtitle mb-2 text-muted border-top pt-3">Progressive Tiers</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light"><tr><th>Hour Limit</th><th>Sequential Fee</th></tr></thead>
+                        <tbody>
+                            {{#each this.Tiers}}
+                            <tr>
+                                <td>Up to Hour {{this.HourLimit}}</td>
+                                <td>Rp {{this.FeeAmount}}</td>
+                            </tr>
+                            {{/each}}
+                        </tbody>
+                    </table>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+    </div>
+    {{/each}}
+</div>

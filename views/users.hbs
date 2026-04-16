@@ -1,0 +1,32 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Users List</h1>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Username</th>
+                <th scope="col">Email</th>
+                <th scope="col">Active</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each Users}}
+            <tr>
+                <td>{{this.Name}}</td>
+                <td><span class="badge bg-secondary">{{this.Username}}</span></td>
+                <td>{{this.Email}}</td>
+                <td>
+                    {{#if this.IsActive}}
+                        <span class="badge bg-success">Yes</span>
+                    {{else}}
+                        <span class="badge bg-danger">No</span>
+                    {{/if}}
+                </td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>

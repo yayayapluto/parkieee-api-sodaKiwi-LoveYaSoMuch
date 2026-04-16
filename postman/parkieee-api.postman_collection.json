@@ -1,0 +1,2317 @@
+{
+    "info": {
+        "_postman_id": "8d7349fb-6bf5-43da-a2fb-cfd0703d0fed",
+        "name": "Parkieee API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "const method = (pm.request.method || '').toUpperCase();",
+                    "const rawUrl = pm.request.url.toString();",
+                    "const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);",
+                    "const skipCsrf = rawUrl.includes('/auth/login') || rawUrl.includes('/payments/midtrans/callback');",
+                    "",
+                    "const jar = (pm.cookies && pm.cookies.toObject) ? pm.cookies.toObject() : {};",
+                    "const accessToken = pm.collectionVariables.get('access_token') || pm.environment.get('access_token') || jar['access_token'] || '';",
+                    "const csrfToken = pm.collectionVariables.get('csrf_token') || pm.environment.get('csrf_token') || jar['csrf_token'] || '';",
+                    "",
+                    "if (accessToken) {",
+                    "  pm.request.headers.upsert({ key: 'Authorization', value: `Bearer ${accessToken}` });",
+                    "}",
+                    "",
+                    "if (isMutating && !skipCsrf && csrfToken) {",
+                    "  pm.request.headers.upsert({ key: 'X-CSRF-Token', value: csrfToken });",
+                    "}",
+                    "if (isMutating && !skipCsrf && !csrfToken) {",
+                    "  console.warn('Missing csrf_token. Run Auth/Login first to bootstrap cookies.');",
+                    "}"
+                ]
+            }
+        }
+    ],
+    "item": [
+        {
+            "name": "Health",
+            "item": [
+                {
+                    "name": "Health Check",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/health",
+                        "description": "Public endpoint untuk cek status server."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const setCookieBlob = pm.response.headers",
+                                    "  .all()",
+                                    "  .filter((h) => (h.key || '').toLowerCase() === 'set-cookie')",
+                                    "  .map((h) => h.value)",
+                                    "  .join('\\n');",
+                                    "",
+                                    "['access_token', 'refresh_token', 'csrf_token'].forEach((name) => {",
+                                    "  const match = setCookieBlob.match(new RegExp(`(?:^|\\\\n)${name}=([^;\\\\n]+)`, 'i'));",
+                                    "  if (match && match[1]) pm.collectionVariables.set(name, match[1].trim());",
+                                    "});",
+                                    "",
+                                    "const jarCookies = pm.cookies && pm.cookies.toObject ? pm.cookies.toObject() : {};",
+                                    "['access_token', 'refresh_token', 'csrf_token'].forEach((name) => {",
+                                    "  if (!pm.collectionVariables.get(name) && jarCookies[name]) {",
+                                    "    pm.collectionVariables.set(name, jarCookies[name]);",
+                                    "  }",
+                                    "});",
+                                    "",
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.user && json.data.user.id) {",
+                                    "  pm.collectionVariables.set('user_id', json.data.user.id);",
+                                    "}",
+                                    "pm.test('Login success', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/auth/login",
+                        "description": "Login dan simpan access_token, refresh_token, csrf_token dari Set-Cookie ke collection variables."
+                    }
+                },
+                {
+                    "name": "Refresh",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const setCookieBlob = pm.response.headers",
+                                    "  .all()",
+                                    "  .filter((h) => (h.key || '').toLowerCase() === 'set-cookie')",
+                                    "  .map((h) => h.value)",
+                                    "  .join('\\n');",
+                                    "",
+                                    "['access_token', 'refresh_token', 'csrf_token'].forEach((name) => {",
+                                    "  const match = setCookieBlob.match(new RegExp(`(?:^|\\\\n)${name}=([^;\\\\n]+)`, 'i'));",
+                                    "  if (match && match[1]) pm.collectionVariables.set(name, match[1].trim());",
+                                    "});",
+                                    "",
+                                    "const jarCookies = pm.cookies && pm.cookies.toObject ? pm.cookies.toObject() : {};",
+                                    "['access_token', 'refresh_token', 'csrf_token'].forEach((name) => {",
+                                    "  if (!pm.collectionVariables.get(name) && jarCookies[name]) {",
+                                    "    pm.collectionVariables.set(name, jarCookies[name]);",
+                                    "  }",
+                                    "});",
+                                    "pm.test('Refresh success', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/auth/refresh",
+                        "description": "Ambil access token baru. Bisa pakai cookie atau body refresh_token."
+                    }
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/auth/logout"
+                    }
+                },
+                {
+                    "name": "Me",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/auth/me"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Users",
+            "item": [
+                {
+                    "name": "List Users",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/users?page=1&limit=20&search=&role=&is_active=",
+                        "description": "Filter opsional: search, role, is_active=true/false"
+                    }
+                },
+                {
+                    "name": "Create User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('user_target_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "}",
+                                    "",
+                                    "}",
+                                    "}",
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"role_id\") || pm.collectionVariables.get(\"role_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  pm.collectionVariables.set(\"role_id\", \"00000001-0000-0000-0000-000000000002\");",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Petugas Postman\",\n  \"username\": \"petugas_postman\",\n  \"email\": \"petugas.postman@example.com\",\n  \"password\": \"secret123\",\n  \"role_id\": \"{{role_id}}\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/users"
+                    }
+                },
+                {
+                    "name": "Get User By ID",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/users/{{user_target_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"user_target_id\") || pm.collectionVariables.get(\"user_target_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/users\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"user_target_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Update User",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Petugas Update\",\n  \"email\": \"petugas.update@example.com\",\n  \"role_id\": \"{{role_id}}\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/users/{{user_target_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "}",
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"role_id\") || pm.collectionVariables.get(\"role_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  pm.collectionVariables.set(\"role_id\", \"00000001-0000-0000-0000-000000000002\");",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"user_target_id\") || pm.collectionVariables.get(\"user_target_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/users\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"user_target_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Deactivate User",
+                    "request": {
+                        "method": "PATCH",
+                        "url": "{{base_url}}/{{api_prefix}}/users/{{user_target_id}}/deactivate"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"user_target_id\") || pm.collectionVariables.get(\"user_target_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/users\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"user_target_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Reset Password",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"new_password\": \"newSecret123\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/users/{{user_target_id}}/reset-password"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"user_target_id\") || pm.collectionVariables.get(\"user_target_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/users\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"user_target_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Vehicle Types",
+            "item": [
+                {
+                    "name": "List Vehicle Types",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/vehicle-types?page=1&limit=20&search="
+                    }
+                },
+                {
+                    "name": "Create Vehicle Type",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('vehicle_type_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Mobil\",\n  \"minimum_fee\": 5000,\n  \"description\": \"Kendaraan roda 4\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/vehicle-types"
+                    }
+                },
+                {
+                    "name": "Update Vehicle Type",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Mobil Premium\",\n  \"minimum_fee\": 7000,\n  \"description\": \"Kendaraan roda 4 premium\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/vehicle-types/{{vehicle_type_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicle-types\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Delete Vehicle Type",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{base_url}}/{{api_prefix}}/vehicle-types/{{vehicle_type_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicle-types\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Vehicles & RFID",
+            "item": [
+                {
+                    "name": "List Vehicles",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/vehicles?page=1&limit=20&search=&plate_number=&vehicle_type_id="
+                    }
+                },
+                {
+                    "name": "Create Vehicle",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('vehicle_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicle-types\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"plate_number\": \"B1234XYZ\",\n  \"vehicle_type_id\": \"{{vehicle_type_id}}\",\n  \"source\": \"siswa\",\n  \"notes\": \"testing postman\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/vehicles"
+                    }
+                },
+                {
+                    "name": "Get Vehicle By ID",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/vehicles/{{vehicle_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"vehicle_id\") || pm.collectionVariables.get(\"vehicle_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicles\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Vehicle",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"vehicle_type_id\": \"{{vehicle_type_id}}\",\n  \"notes\": \"updated via postman\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/vehicles/{{vehicle_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body.data && body.data.length > 0 ? body.data[0].id : null;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicle-types\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"vehicle_id\") || pm.collectionVariables.get(\"vehicle_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicles\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "List RFID Cards",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/vehicles/{{vehicle_id}}/rfid-cards?is_active=true"
+                    }
+                },
+                {
+                    "name": "Assign RFID",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('rfid_card_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"vehicle_id\") || pm.collectionVariables.get(\"vehicle_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicles\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"card_uid\": \"RFID-POSTMAN-001\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/vehicles/{{vehicle_id}}/rfid-cards"
+                    }
+                },
+                {
+                    "name": "Deactivate RFID",
+                    "request": {
+                        "method": "PATCH",
+                        "url": "{{base_url}}/{{api_prefix}}/rfid-cards/{{rfid_card_id}}/deactivate"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Zones & Gates",
+            "item": [
+                {
+                    "name": "List Zones",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/zones"
+                    }
+                },
+                {
+                    "name": "Create Zone",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('zone_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Zone A\",\n  \"description\": \"Main parking zone\",\n  \"capacity\": 120,\n  \"additional_fee\": 0\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/zones"
+                    }
+                },
+                {
+                    "name": "Get Zone",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/zones/{{zone_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/zones\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Zone",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Zone A Updated\",\n  \"description\": \"Main parking zone updated\",\n  \"capacity\": 150,\n  \"additional_fee\": 1000,\n  \"is_active\": true\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/zones/{{zone_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/zones\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "List Gates",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/gates"
+                    }
+                },
+                {
+                    "name": "Create Gate",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('gate_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/zones\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"zone_id\": \"{{zone_id}}\",\n  \"name\": \"Gate 1\",\n  \"gate_type\": \"entry\",\n  \"mode\": \"auto\",\n  \"location_desc\": \"North side\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/gates"
+                    }
+                },
+                {
+                    "name": "Get Gate",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/gates/{{gate_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"gate_id\") || pm.collectionVariables.get(\"gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/gates\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Gate",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"zone_id\": \"{{zone_id}}\",\n  \"name\": \"Gate 1 Updated\",\n  \"gate_type\": \"entry\",\n  \"mode\": \"manual\",\n  \"location_desc\": \"North side updated\",\n  \"is_active\": true\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/gates/{{gate_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body.data && body.data.length > 0 ? body.data[0].id : null;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/zones\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"gate_id\") || pm.collectionVariables.get(\"gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/gates\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "List Gate Devices",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/gates/{{gate_id}}/devices"
+                    }
+                },
+                {
+                    "name": "Update Gate Device Status",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"online\",\n  \"error_message\": \"\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/gate-devices/{{gate_device_id}}/status"
+                    }
+                },
+                {
+                    "name": "Gate Pair Request",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.code) {",
+                                    "  pm.collectionVariables.set('pairing_code', json.data.code);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/{{api_prefix}}/gates/pair/request"
+                    }
+                },
+                {
+                    "name": "Gate Pair Confirm",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"code\": \"{{pairing_code}}\",\n  \"gate_id\": \"{{gate_id}}\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/gates/pair/confirm"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "if (!pm.collectionVariables.get(\"gate_id\") || pm.collectionVariables.get(\"gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body.data && body.data.length > 0 ? body.data[0].id : null;",
+                                    "      if (val) pm.collectionVariables.set(\"gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"gate_id\") || pm.collectionVariables.get(\"gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/gates\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Gate Pair Verify",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/gates/pair/verify/{{pairing_code}}"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "System Configs",
+            "item": [
+                {
+                    "name": "List System Configs",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/system-configs"
+                    }
+                },
+                {
+                    "name": "Update System Config",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"value\": \"60\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/system-configs/{{system_config_key}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"system_config_key\") || pm.collectionVariables.get(\"system_config_key\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/system-configs\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.key;",
+                                    "      if (val) pm.collectionVariables.set(\"system_config_key\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Fees",
+            "item": [
+                {
+                    "name": "List Fee Configs",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs"
+                    }
+                },
+                {
+                    "name": "Create Fee Config",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('fee_config_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/zones\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicle-types\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"zone_id\": \"{{zone_id}}\",\n  \"vehicle_type_id\": \"{{vehicle_type_id}}\",\n  \"base_fee\": 5000,\n  \"grace_period_minutes\": 10,\n  \"is_active\": true,\n  \"effective_from\": \"2026-04-16T00:00:00Z\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs"
+                    }
+                },
+                {
+                    "name": "Get Fee Config",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs/{{fee_config_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"fee_config_id\") || pm.collectionVariables.get(\"fee_config_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/fee-configs\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"fee_config_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Fee Config",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"zone_id\": \"{{zone_id}}\",\n  \"vehicle_type_id\": \"{{vehicle_type_id}}\",\n  \"base_fee\": 7000,\n  \"grace_period_minutes\": 5,\n  \"is_active\": true,\n  \"effective_from\": \"2026-04-16T00:00:00Z\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs/{{fee_config_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body.data && body.data.length > 0 ? body.data[0].id : null;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body.data && body.data.length > 0 ? body.data[0].id : null;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/zones\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicle-types\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"fee_config_id\") || pm.collectionVariables.get(\"fee_config_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/fee-configs\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"fee_config_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Delete Fee Config",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs/{{fee_config_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"fee_config_id\") || pm.collectionVariables.get(\"fee_config_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/fee-configs\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"fee_config_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "List Fee Tiers",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs/{{fee_config_id}}/tiers"
+                    }
+                },
+                {
+                    "name": "Create Fee Tier",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('fee_tier_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"tier_order\": 1,\n  \"duration_minutes\": 60,\n  \"fee_amount\": 2000,\n  \"is_last_tier\": false\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs/{{fee_config_id}}/tiers"
+                    }
+                },
+                {
+                    "name": "Update Fee Tier",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"tier_order\": 2,\n  \"duration_minutes\": 120,\n  \"fee_amount\": 3000,\n  \"is_last_tier\": true\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs/{{fee_config_id}}/tiers/{{fee_tier_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"fee_config_id\") || pm.collectionVariables.get(\"fee_config_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/fee-configs\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"fee_config_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Delete Fee Tier",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{base_url}}/{{api_prefix}}/fee-configs/{{fee_config_id}}/tiers/{{fee_tier_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"fee_config_id\") || pm.collectionVariables.get(\"fee_config_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/fee-configs\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"fee_config_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "List Holiday Rates",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/holiday-rates"
+                    }
+                },
+                {
+                    "name": "Create Holiday Rate",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data && json.data.id) {",
+                                    "  pm.collectionVariables.set('holiday_rate_id', json.data.id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Lebaran\",\n  \"holiday_date\": \"2026-06-01\",\n  \"additional_fee\": 2000,\n  \"multiplier\": 1.5,\n  \"is_active\": true\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/holiday-rates"
+                    }
+                },
+                {
+                    "name": "Get Holiday Rate",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/holiday-rates/{{holiday_rate_id}}"
+                    }
+                },
+                {
+                    "name": "Update Holiday Rate",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Lebaran Update\",\n  \"holiday_date\": \"2026-06-02\",\n  \"additional_fee\": 3000,\n  \"multiplier\": 1.2,\n  \"is_active\": true\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/holiday-rates/{{holiday_rate_id}}"
+                    }
+                },
+                {
+                    "name": "Delete Holiday Rate",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{base_url}}/{{api_prefix}}/holiday-rates/{{holiday_rate_id}}"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Transactions",
+            "item": [
+                {
+                    "name": "Entry (Ticket)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json && json.data) {",
+                                    "  if (json.data.id) pm.collectionVariables.set('transaction_id', json.data.id);",
+                                    "  if (json.data.ticket_code) pm.collectionVariables.set('ticket_code', json.data.ticket_code);",
+                                    "}"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "if (!pm.collectionVariables.get(\"entry_gate_id\") || pm.collectionVariables.get(\"entry_gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body.data && body.data.length > 0 ? body.data[0].id : null;",
+                                    "      if (val) pm.collectionVariables.set(\"entry_gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"entry_gate_id\") || pm.collectionVariables.get(\"entry_gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/gates\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"entry_gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"gate_id\": \"{{entry_gate_id}}\",\n  \"method\": \"ticket\",\n  \"photo_path\": \"https://example.com/photos/entry.jpg\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/transactions/entry"
+                    }
+                },
+                {
+                    "name": "Exit (Ticket)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"gate_id\": \"{{exit_gate_id}}\",\n  \"method\": \"ticket\",\n  \"ticket_code\": \"{{ticket_code}}\",\n  \"photo_path\": \"https://example.com/photos/exit.jpg\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/transactions/exit"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "if (!pm.collectionVariables.get(\"exit_gate_id\") || pm.collectionVariables.get(\"exit_gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body.data && body.data.length > 0 ? body.data[0].id : null;",
+                                    "      if (val) pm.collectionVariables.set(\"exit_gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"exit_gate_id\") || pm.collectionVariables.get(\"exit_gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/gates\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"exit_gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "List Transactions",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/transactions?page=1&limit=20&status=&zone_id=&start_date=&end_date=",
+                        "description": "start_date/end_date gunakan format RFC3339, contoh 2026-04-15T00:00:00Z"
+                    }
+                },
+                {
+                    "name": "Transaction Detail",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/transactions/{{transaction_id}}"
+                    }
+                },
+                {
+                    "name": "Transaction Logs",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/transactions/{{transaction_id}}/logs?page=1&limit=20"
+                    }
+                },
+                {
+                    "name": "Upload Entry Photo",
+                    "request": {
+                        "method": "POST",
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/uploads/entry-photo"
+                    }
+                },
+                {
+                    "name": "Upload Exit Photo",
+                    "request": {
+                        "method": "POST",
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/uploads/exit-photo"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "OCR",
+            "item": [
+                {
+                    "name": "List OCR Jobs",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/ocr/jobs?status=&page=1&limit=20"
+                    }
+                },
+                {
+                    "name": "Review OCR Job",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"manual_plate\": \"B1234XYZ\",\n  \"match\": true,\n  \"review_note\": \"plate sesuai\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/ocr/jobs/{{ocr_job_id}}/review"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Payments",
+            "item": [
+                {
+                    "name": "Cash Payment",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"transaction_id\": \"{{transaction_id}}\",\n  \"cash_tendered\": 20000\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/payments/cash"
+                    }
+                },
+                {
+                    "name": "Create QRIS Payment",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"transaction_id\": \"{{transaction_id}}\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/payments/qris"
+                    }
+                },
+                {
+                    "name": "Midtrans Callback",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"transaction_status\": \"settlement\",\n  \"status_code\": \"200\",\n  \"gross_amount\": \"5000.00\",\n  \"signature_key\": \"replace-with-valid-signature\",\n  \"order_id\": \"replace-with-midtrans-order-id\",\n  \"payment_type\": \"qris\",\n  \"fraud_status\": \"accept\",\n  \"transaction_id\": \"replace-with-midtrans-transaction-id\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/payments/midtrans/callback",
+                        "description": "Callback Midtrans tidak membutuhkan JWT dan dikecualikan dari CSRF middleware."
+                    }
+                },
+                {
+                    "name": "Get Payment By Transaction",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/payments/{{transaction_id}}"
+                    }
+                },
+                {
+                    "name": "Create Refund",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"transaction_id\": \"{{transaction_id}}\",\n  \"amount\": 1000,\n  \"reason\": \"manual adjustment\"\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/payments/refunds"
+                    }
+                },
+                {
+                    "name": "List Refunds By Transaction",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/payments/{{transaction_id}}/refunds"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Notifications",
+            "item": [
+                {
+                    "name": "Unread Count",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/notifications/unread-count"
+                    }
+                },
+                {
+                    "name": "List Notifications",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/notifications?page=1&limit=20"
+                    }
+                },
+                {
+                    "name": "Mark All Read",
+                    "request": {
+                        "method": "PATCH",
+                        "url": "{{base_url}}/{{api_prefix}}/notifications/read-all"
+                    }
+                },
+                {
+                    "name": "Mark Read",
+                    "request": {
+                        "method": "PATCH",
+                        "url": "{{base_url}}/{{api_prefix}}/notifications/{{notification_id}}/read"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Overrides",
+            "item": [
+                {
+                    "name": "Apply Transaction Override",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"override_type\": \"fee_adjust\",\n  \"reason\": \"diskon manual karena kendala gate\",\n  \"adjusted_fee\": 3000\n}"
+                        },
+                        "url": "{{base_url}}/{{api_prefix}}/transactions/{{transaction_id}}/override"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Audit Logs",
+            "item": [
+                {
+                    "name": "List Audit Logs",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/audit-logs/?q=&before=&limit=50",
+                        "description": "before menggunakan RFC3339, contoh 2026-04-15T10:30:00Z"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Reports",
+            "item": [
+                {
+                    "name": "Revenue",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/reports/revenue?from={{from_date}}&to={{to_date}}&zone_id={{zone_id}}&vehicle_type_id={{vehicle_type_id}}",
+                        "description": "from/to format YYYY-MM-DD"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/zones\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicle-types\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Revenue Export CSV",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/reports/revenue/export?from={{from_date}}&to={{to_date}}&zone_id={{zone_id}}&vehicle_type_id={{vehicle_type_id}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"zone_id\") || pm.collectionVariables.get(\"zone_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/zones\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"zone_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}",
+                                    "if (!pm.collectionVariables.get(\"vehicle_type_id\") || pm.collectionVariables.get(\"vehicle_type_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/vehicle-types\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"vehicle_type_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Occupancy",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/{{api_prefix}}/reports/occupancy"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "SSE",
+            "item": [
+                {
+                    "name": "Gate Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "text/event-stream"
+                            }
+                        ],
+                        "url": "{{base_url}}/{{api_prefix}}/sse/gate/{{gate_id}}?gate_token={{gate_token}}",
+                        "description": "Gate SSE memakai gate token via query param gate_token."
+                    },
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "",
+                                    "// Auto-inject from helper",
+                                    "if (!pm.collectionVariables.get(\"gate_id\") || pm.collectionVariables.get(\"gate_id\") === \"00000000-0000-0000-0000-000000000000\") {",
+                                    "  const baseUrl = (pm.environment.get(\"base_url\") || pm.collectionVariables.get(\"base_url\")) + \"/\" + (pm.environment.get(\"api_prefix\") || pm.collectionVariables.get(\"api_prefix\"));",
+                                    "  const token = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\") || (pm.cookies.toObject() || {})[\"access_token\"];",
+                                    "  pm.sendRequest({",
+                                    "    url: baseUrl + \"/gates\",",
+                                    "    method: \"GET\",",
+                                    "    header: token ? { \"Authorization\": \"Bearer \" + token } : {}",
+                                    "  }, (err, res) => {",
+                                    "    if (!err && res.code === 200) {",
+                                    "      const body = res.json();",
+                                    "      const val = body?.data?.[0]?.id;",
+                                    "      if (val) pm.collectionVariables.set(\"gate_id\", val);",
+                                    "    }",
+                                    "  });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Cashier Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "text/event-stream"
+                            }
+                        ],
+                        "url": "{{base_url}}/{{api_prefix}}/sse/cashier"
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8000"
+        },
+        {
+            "key": "api_prefix",
+            "value": "api/v1"
+        },
+        {
+            "key": "username",
+            "value": "admin"
+        },
+        {
+            "key": "password",
+            "value": "admin123"
+        },
+        {
+            "key": "role_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "user_id",
+            "value": ""
+        },
+        {
+            "key": "user_target_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "vehicle_type_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "vehicle_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "rfid_card_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "transaction_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "ticket_code",
+            "value": ""
+        },
+        {
+            "key": "notification_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "ocr_job_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "entry_gate_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "exit_gate_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "gate_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "gate_token",
+            "value": ""
+        },
+        {
+            "key": "gate_device_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "pairing_code",
+            "value": ""
+        },
+        {
+            "key": "zone_id",
+            "value": ""
+        },
+        {
+            "key": "fee_config_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "fee_tier_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "holiday_rate_id",
+            "value": "00000000-0000-0000-0000-000000000000"
+        },
+        {
+            "key": "system_config_key",
+            "value": "unclosed_check_interval_minutes"
+        },
+        {
+            "key": "from_date",
+            "value": "2026-01-01"
+        },
+        {
+            "key": "to_date",
+            "value": "2026-12-31"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        },
+        {
+            "key": "refresh_token",
+            "value": ""
+        },
+        {
+            "key": "csrf_token",
+            "value": ""
+        }
+    ]
+}
