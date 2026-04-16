@@ -2,3 +2,21 @@
 parkieee-api
 # Added by code-review-graph
 .code-review-graph/
+
+# Local env/secrets
+.env
+
+# Local editor/agent configs
+.agents/
+.claude/
+.cursor/
+.kiro/
+.cursorrules
+.windsurfrules
+.mcp.json
+.opencode.json
+.python-version
+
+# Local temp/build artifacts
+pip
+*.exe
