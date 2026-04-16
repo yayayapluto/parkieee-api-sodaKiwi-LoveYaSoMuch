@@ -20,3 +20,12 @@ parkieee-api
 # Local temp/build artifacts
 pip
 *.exe
+
+# User-requested ignores
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+entrypoint.sh
+fe-plan.md
+skills-lock.json
+.github/skills/
