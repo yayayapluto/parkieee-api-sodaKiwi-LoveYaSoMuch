@@ -1,65 +1,129 @@
 # parkieee-api
 
-Go backend for parkieee parking management system.
+Backend service for Parkieee parking management.
 
-## Stack
+## Tech Stack
 
-- Go + Fiber
+- Go 1.24+
+- Fiber v2
 - GORM + PostgreSQL
-- JWT auth + RBAC middleware
+- JWT auth + RBAC permissions
+- Midtrans integration
+- S3-compatible object storage
+- SSE for real-time events
 
-## Quick Start
+## Current Scope
 
-1. Make sure required environment variables are available in `.env`.
-2. Run database seed (idempotent):
+Implemented modules:
+
+- Auth
+- User
+- Vehicle + RFID
+- Zone + Gate pairing
+- Fee configuration
+- OCR review flow
+- Transaction (entry/exit + photo upload)
+- Payment (cash, QRIS, refund, Midtrans callback)
+- Notification
+- Override
+- Audit
+- Report
+- SSE streams
+- UI dashboard views
+- Background workers (outbox, unclosed checker, view refresher, optional Telegram bot)
+
+## API Base URLs
+
+- Public health: `http://localhost:8000/health`
+- API v1: `http://localhost:8000/api/v1`
+
+## Quick Start (Local)
+
+1. Prepare `.env` with required variables.
+2. Start infra:
 
 ```bash
-go run ./cmd/seed
+make infra-up
 ```
 
-3. Start API server:
+3. Seed base data (idempotent):
 
 ```bash
-go run ./cmd/api
+make seed
 ```
 
-4. Health check:
+4. Run API (local process):
 
 ```bash
-GET http://localhost:8000/health
+make run
 ```
 
-## Useful Commands
+Or run API inside compose stack:
 
 ```bash
-# Run all tests
-go test ./...
-
-# Vet
-go vet ./...
-
-# Build
-go build -o parkieee-api ./cmd/api
+make run-dev
 ```
 
-## Default Seed Account
+## Default Seeded Admin
 
 - Username: `admin`
 - Password: `admin123`
 
-## API Base URL
+## Required Environment Variables
 
-`http://localhost:8000/api/v1`
+Required at startup (panic if missing):
 
-## Features Implemented
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `GATE_JWT_SECRET`
+- `S3_ENDPOINT`
+- `S3_BUCKET`
+- `S3_ACCESS_KEY`
+- `S3_SECRET_KEY`
+- `S3_PUBLIC_BASE_URL`
+- `MIDTRANS_SERVER_KEY`
+- `MIDTRANS_CLIENT_KEY`
+- `LPR_SERVICE_URL`
 
-### 1. Auth
+Common optional vars:
+
+- `PORT` (default: `8000`)
+- `JWT_EXP_MINUTES` (default: `15`)
+- `CORS_ALLOWED_ORIGINS`
+- `COOKIE_DOMAIN`, `COOKIE_SECURE`, `COOKIE_SAME_SITE`
+- `USE_CSRF` (default: `true`)
+- `MIDTRANS_ENV` (default: `sandbox`)
+- `LOG_LEVEL` (default: `info`)
+- `LOG_FORMAT` (default: `text`)
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_IDS`
+
+## Docker Compose Infra
+
+`docker-compose.infra.yml` includes:
+
+- `postgres`
+- `api`
+- `cloudflared`
+
+Useful commands:
+
+```bash
+make infra-up
+make infra-rebuild
+make infra-logs
+make infra-down
+```
+
+## Route Summary
+
+Auth:
 
 - `POST /auth/login`
 - `POST /auth/refresh`
 - `POST /auth/logout`
+- `GET /auth/me`
 
-### 2. User Management (permission: `user:manage`)
+User:
 
 - `GET /users`
 - `POST /users`
@@ -68,108 +132,98 @@ go build -o parkieee-api ./cmd/api
 - `PATCH /users/:id/deactivate`
 - `PATCH /users/:id/reset-password`
 
-### 3. Vehicle + RFID Management
+Vehicle + RFID:
 
-Read permission: `zone:read`
-Write permission: `zone:write`
-
-Vehicle types:
-- `GET /vehicle-types`
-- `POST /vehicle-types`
-- `PUT /vehicle-types/:id`
-- `DELETE /vehicle-types/:id`
-
-Vehicles:
-- `GET /vehicles`
-- `POST /vehicles`
-- `GET /vehicles/:id`
-- `PUT /vehicles/:id`
-
-RFID:
-- `GET /vehicles/:id/rfid-cards`
-- `POST /vehicles/:id/rfid-cards`
+- `GET/POST/PUT/DELETE /vehicle-types...`
+- `GET/POST/PUT /vehicles...`
+- `GET/POST /vehicles/:id/rfid-cards`
 - `PATCH /rfid-cards/:id/deactivate`
 
-## Not Yet Implemented
+Zone + Gate:
 
-- Zone routes (currently stub)
-- Fee routes (currently stub)
-- Core phase 2 modules: transaction, payment, OCR, SSE flow
+- `GET/POST/PUT /zones...`
+- `GET/POST/PUT /gates...`
+- `GET /gates/:id/devices`
+- `PATCH /gate-devices/:id/status`
+- `POST /gates/pair/request`
+- `POST /gates/pair/confirm`
+- `GET /gates/pair/verify/:code`
 
-## Postman Testing Flow
+Fee:
 
-1. Login admin
+- `GET/POST/PUT/DELETE /fee-configs...`
+- `GET/POST/PUT/DELETE /fee-configs/:id/tiers...`
+- `GET/POST/PUT/DELETE /holiday-rates...`
+- `GET /system-configs`
+- `PUT /system-configs/:key`
 
-Request:
+OCR:
 
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
+- `GET /ocr/jobs`
+- `POST /ocr/jobs/:id/review`
 
+Transaction:
+
+- `POST /transactions/entry`
+- `POST /transactions/exit`
+- `POST /uploads/entry-photo`
+- `POST /uploads/exit-photo`
+- `GET /transactions`
+- `GET /transactions/:id`
+- `GET /transactions/:id/logs`
+
+Payment:
+
+- `POST /payments/cash`
+- `POST /payments/qris`
+- `POST /payments/refunds`
+- `POST /payments/midtrans/callback`
+- `GET /payments/:transaction_id`
+- `GET /payments/:transaction_id/refunds`
+
+Other:
+
+- Notification: unread/list/mark read
+- Override: `POST /overrides/:id/override`
+- Audit: `GET /audit`
+- Report: revenue, occupancy, export
+- SSE: `/sse/gate/:id`, `/sse/cashier`
+
+UI pages:
+
+- `/ui/dashboard`
+- `/ui/transactions`
+- `/ui/vehicles`
+- `/ui/zones`
+- `/ui/fees`
+- `/ui/users`
+
+## Quality Commands
+
+```bash
+make test
+make test-race
+make vet
+make fmt
+make build
+make check
+```
+
+## API Response Envelope
+
+Success:
+
+```json
+{ "success": true, "data": {}, "meta": {}, "error": null }
+```
+
+Error:
+
+```json
 {
-  "username": "admin",
-  "password": "admin123"
+  "success": false,
+  "data": null,
+  "meta": {},
+  "error": { "code": "ERR_CODE", "message": "message" }
 }
 ```
-
-Save:
-- `data.access_token` -> `access_token`
-- `data.refresh_token` -> `refresh_token`
-
-2. Set authorization for protected endpoints
-
-- Header: `Authorization: Bearer {{access_token}}`
-
-3. Try user endpoint
-
-```http
-GET /api/v1/users?page=1&limit=20
-```
-
-4. Create vehicle type
-
-```http
-POST /api/v1/vehicle-types
-Content-Type: application/json
-Authorization: Bearer {{access_token}}
-
-{
-  "name": "Mobil",
-  "minimum_fee": 5000,
-  "description": "Kendaraan roda 4"
-}
-```
-
-5. Create vehicle
-
-```http
-POST /api/v1/vehicles
-Content-Type: application/json
-Authorization: Bearer {{access_token}}
-
-{
-  "plate_number": "B1234XYZ",
-  "vehicle_type_id": "<vehicle_type_uuid>",
-  "source": "siswa",
-  "notes": "testing postman"
-}
-```
-
-6. Assign RFID
-
-```http
-POST /api/v1/vehicles/<vehicle_id>/rfid-cards
-Content-Type: application/json
-Authorization: Bearer {{access_token}}
-
-{
-  "card_uid": "RFID-001"
-}
-```
-
-## Notes
-
-- API uses a standard response envelope:
-  - success: `{ success, data, meta, error }`
-  - error: `{ success, data: null, meta, error: { code, message } }`
-- Some endpoints enforce role/permission checks and will return forbidden if permissions are missing.
